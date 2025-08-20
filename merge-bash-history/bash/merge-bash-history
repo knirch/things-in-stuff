@@ -1,0 +1,7 @@
+#!/bin/bash
+export HISTFILE=./k
+export HISTTIMEFORMAT=
+for histfile in /home/knirch/bash_histories/*; do
+	history -n "$histfile"
+done
+history -w
