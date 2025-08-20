@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+
+from collections import defaultdict
+import pathlib
+import sys
+from contextlib import suppress
+
+histories = sys.argv[1:]
+
+
+collected = defaultdict(list)
+
+for history_file in histories:
+    hist = pathlib.Path(history_file)
+
+    command = []
+    cur_ts = 0
+
+    data = hist.read_bytes().splitlines()
+    for n, linebytes in enumerate(data):
+        line = linebytes.rstrip()
+        # try:
+        #     line = linebytes.decode("utf-8")
+        # except UnicodeDecodeError:
+        #     line = linebytes.decode("iso8859-1")
+
+        # line = line.rstrip()
+
+        # Skip blank lines
+        if not line:
+            continue
+
+        if line.startswith(b"#"):
+            with suppress(ValueError):
+                if ts := int(line[1:], 10):
+                    if command:
+                        if cur_ts == 0:
+                            breakpoint()
+                        assert cur_ts != 0
+                        if b"\n".join(command) not in collected[cur_ts]:
+                            collected[cur_ts].append(b"\n".join(command))
+                        del command
+                        command = []
+
+                    cur_ts = ts
+                    continue
+
+        command.append(line)
+    # file ended, assume command ended
+    if command:
+        assert cur_ts != 0
+        if b"\n".join(command) not in collected[cur_ts]:
+            collected[cur_ts].append(b"\n".join(command))
+
+with open("/dev/stdout", "wb") as stdout_bytes:
+    prev_cmd = ""
+    for k in sorted(collected):
+        for command in collected[k]:
+            if command != prev_cmd:
+                out = b"#" + str(k).encode() + b"\n"
+                out += command + b"\n"
+                stdout_bytes.write(out)
+                prev_cmd = command
